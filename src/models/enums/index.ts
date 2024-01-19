@@ -1,0 +1,1 @@
+export { ERole } from "./role.enum";
