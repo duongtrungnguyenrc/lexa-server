@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
-import { ERole } from "../enums";
+import { EUserRole } from "src/models/enums";
 
 @Entity()
 export default class User {
@@ -9,7 +9,7 @@ export default class User {
     @Column({ type: "varchar", length: 50 })
     email: string;
 
-    @Column({ type: "varchar", length: 20 })
+    @Column({ type: "varchar", length: 100 })
     password: string;
 
     @Column({ type: "nvarchar", length: 50 })
@@ -18,9 +18,13 @@ export default class User {
     @Column({ type: "varchar", length: 10 })
     phone: string;
 
-    @Column()
-    active: boolean;
+    @Column({ nullable: true })
+    avatar: string;
 
-    @Column({ type: "enum", enum: ERole, default: ERole.ROLE_USER })
-    role: ERole;
+    @Column({
+        type: "enum",
+        enum: ["ROLE_USER", "ROLE_ADMIN"],
+        default: "ROLE_USER",
+    })
+    role: EUserRole;
 }
