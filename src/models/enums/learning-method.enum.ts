@@ -1,0 +1,1 @@
+export type ELearningMethod = "METHOD_FLASH_CARD" | "METHOD_MULTIPLE_CHOICE" | "METHOD_TYPING"

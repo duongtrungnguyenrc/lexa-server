@@ -2,11 +2,9 @@ import { Module } from "@nestjs/common";
 import { MailerModule } from "@nestjs-modules/mailer";
 import { join } from "path";
 import { HandlebarsAdapter } from "@nestjs-modules/mailer/dist/adapters/handlebars.adapter";
-import { ConfigModule } from "@nestjs/config";
 
 @Module({
     imports: [
-        ConfigModule.forRoot({ envFilePath: ".env" }),
         MailerModule.forRoot({
             transport: {
                 host: process.env.MAILER_HOST,
