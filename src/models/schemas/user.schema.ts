@@ -3,6 +3,7 @@ import { EUserRole } from "../enums";
 import { LearningRecord } from "./learning-record.schema";
 import BaseSchema from "./base.schema";
 import mongoose from "mongoose";
+import { Exclude } from "class-transformer";
 
 @Schema()
 export class User extends BaseSchema {
@@ -10,6 +11,7 @@ export class User extends BaseSchema {
     email: string;
 
     @Prop({ type: String, default: "" })
+    @Exclude()
     password: string;
 
     @Prop({ type: String, default: "" })

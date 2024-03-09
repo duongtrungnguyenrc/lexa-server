@@ -1,25 +1,24 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import mongoose, { Document } from "mongoose";
-import { Folder } from "./folder.schema";
-import { Vocabulary } from "./vocabulary.schema";
+import mongoose from "mongoose";
 import BaseSchema from "./base.schema";
+import { User, Folder, Vocabulary } from "../schemas";
 
 @Schema()
 export class Topic extends BaseSchema {
-    @Prop()
-    id: string;
-
-    @Prop()
+    @Prop({ default: "" })
     name: string;
 
-    @Prop()
+    @Prop({ default: true })
     visibility: boolean;
 
-    @Prop()
+    @Prop({ default: "" })
     thumbnail: string;
 
-    @Prop()
+    @Prop({ default: new Date() })
     createdTime: Date;
+
+    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "User" })
+    author: User;
 
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Folder" }] })
     folders: Folder[];

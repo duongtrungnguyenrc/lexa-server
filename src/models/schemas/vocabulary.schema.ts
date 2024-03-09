@@ -1,28 +1,27 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import mongoose, { Document } from "mongoose";
-import { Topic } from "./topic.schema";
+import mongoose from "mongoose";
 import { MultipleChoiceAnswer } from "./multiple-choice-answer.schema";
 import BaseSchema from "./base.schema";
 
 @Schema()
 export class Vocabulary extends BaseSchema {
-    @Prop()
+    @Prop({ default: "" })
     word: string;
 
-    @Prop()
+    @Prop({ default: "" })
     meaning: string;
 
-    @Prop()
+    @Prop({ default: "" })
     description: string;
 
-    @Prop()
+    @Prop({ default: "" })
     imgDescription: string;
 
-    @Prop()
+    @Prop({ default: new Date() })
     createdTime: Date;
 
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "MultipleChoiceAnswer" }] })
-    answers: MultipleChoiceAnswer;
+    multipleChoiceAnswers: MultipleChoiceAnswer[];
 }
 
 export const VocabularySchema = SchemaFactory.createForClass(Vocabulary);

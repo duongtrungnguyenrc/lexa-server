@@ -4,18 +4,10 @@ import { UserService } from "@/services";
 import { JwtConfigModule } from "./jwt.module";
 import { MailModule } from "./mail.module";
 import { CloudinaryModule } from "./cloudinary.module";
-import { DatabaseInteractionModule } from "./database-interaction.module";
-import { MongooseModule } from "@nestjs/mongoose";
-import { User, UserSchema } from "@/models/schemas";
+import { MongooseInteractionModule } from "./mongoose-interaction.module";
 
 @Module({
-    imports: [
-        JwtConfigModule,
-        MailModule,
-        CloudinaryModule,
-        DatabaseInteractionModule,
-        MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    ],
+    imports: [JwtConfigModule, MailModule, CloudinaryModule, MongooseInteractionModule],
     controllers: [UserController],
     providers: [UserService],
     exports: [JwtConfigModule, CloudinaryModule, UserService],

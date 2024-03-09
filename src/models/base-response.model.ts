@@ -1,9 +1,9 @@
 export default class BaseResponseModel {
-    private statusCode: number;
+    private statusCode?: number;
     private message: string;
-    private data: any;
+    private data?: any;
 
-    constructor(statusCode: number, message: string, data: any){
+    constructor(message: string, data?: any, statusCode?: number) {
         this.statusCode = statusCode;
         this.message = message;
         this.data = data;
