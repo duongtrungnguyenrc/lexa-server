@@ -10,6 +10,6 @@ import { MongooseInteractionModule } from "./mongoose-interaction.module";
     imports: [JwtConfigModule, MailModule, CloudinaryModule, MongooseInteractionModule],
     controllers: [UserController],
     providers: [UserService],
-    exports: [JwtConfigModule, CloudinaryModule, UserService],
+    exports: [JwtConfigModule, MailModule, CloudinaryModule, UserService, MongooseInteractionModule],
 })
 export class UserModule {}
