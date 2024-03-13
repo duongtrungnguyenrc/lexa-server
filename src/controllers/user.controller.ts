@@ -5,7 +5,9 @@ import { BaseResponseModel } from "@/models";
 import { AuthGuard } from "@/guards";
 import { HasRole } from "@/decorators";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiTags } from "@nestjs/swagger";
 
+@ApiTags("user")
 @Controller("user")
 @UseGuards(AuthGuard)
 export class UserController {

@@ -3,19 +3,11 @@ import { AuthGuard } from "@/guards";
 import { CreateTopicDto } from "@/models/dtos";
 import { CreateTopicSerializePipe } from "@/pipes/create-topic-serialization.pipe";
 import { TopicService } from "@/services";
-import {
-    Body,
-    Controller,
-    Get,
-    Post,
-    Query,
-    Req,
-    UploadedFile,
-    UseGuards,
-    UseInterceptors,
-} from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiTags } from "@nestjs/swagger";
 
+@ApiTags("topic")
 @Controller("topic")
 @UseGuards(AuthGuard)
 export class TopicController {

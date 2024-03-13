@@ -12,9 +12,9 @@ services:
     build: .
     command: npm run start:dev
     ports:
-      - 8080:8080
+      - 3000:3000
     environment:
-      - PORT=8080
+      - PORT=3000
 
 # The commented out section below is an example of how to define a PostgreSQL
 # database that your application can use. `depends_on` tells Docker Compose to

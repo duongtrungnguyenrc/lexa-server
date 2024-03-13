@@ -1,12 +1,20 @@
-FROM node:20
-FROM python:3.10
+FROM node:20.10.0
 
-WORKDIR /usr/src
+WORKDIR /usr/src/app
 
-COPY package.json .
-COPY package-lock.json .
+COPY package*.json ./
 
-RUN pip install pyspark
 RUN npm install
 
+FROM python:3.10
+
+WORKDIR /usr/src/app
+
+COPY --from=0 /usr/src/package*.json ./
+
+RUN pip install --upgrade pip
+RUN pip install pyspark
+
 COPY . .
+
+EXPOSE 3000
