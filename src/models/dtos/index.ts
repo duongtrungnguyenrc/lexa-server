@@ -6,3 +6,4 @@ export { UpdatePasswordDto } from "./update-password.dto";
 export { UpdateInterestedTopicDto } from "./update-interested-topic.dto";
 export { LearningRecordDto } from "./learning-record.dto";
 export { CreateTopicDto } from "./create-topic.dto";
+export { CreateTopicFolderDto } from "./create-topic-folder.dto";

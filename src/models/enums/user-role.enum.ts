@@ -1,1 +1,1 @@
-export type EUserRole = "ROLE_ADMIN" | "ROLE_USER";
+export type EUserRole = "ROLE_ADMIN" | "ROLE_USER" | "*";

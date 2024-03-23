@@ -1,31 +1,36 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { IsArray, IsBoolean, IsDate, IsOptional, IsString } from "class-validator";
 
 class MultipleChoiceAnswerDto {
     @ApiProperty()
+    @IsString()
     content: string;
 
     @ApiProperty({ type: Boolean })
+    @IsBoolean()
     isTrue: boolean;
 }
 
 class VocabularyDto {
     @ApiProperty()
+    @IsString()
     word: string;
 
     @ApiProperty()
+    @IsString()
     meaning: string;
 
     @ApiProperty()
+    @IsString()
     description: string;
 
     @ApiProperty()
+    @IsString()
     imgDescription: string;
 
-    @ApiProperty({ type: Date })
-    createdTime: Date;
-
     @ApiProperty({ type: MultipleChoiceAnswerDto, isArray: true })
-    multipleChoiceAnswers: MultipleChoiceAnswerDto[];
+    @IsArray()
+    answers: MultipleChoiceAnswerDto[];
 }
 
 export class CreateTopicDto {
@@ -33,14 +38,23 @@ export class CreateTopicDto {
     name: string;
 
     @ApiProperty()
+    @IsBoolean()
     visibility: boolean;
 
-    @ApiProperty({ type: Date })
-    createdTime: Date;
+    @ApiProperty()
+    @IsString()
+    description: string;
 
     @ApiProperty()
-    folderIds: [];
+    @IsString()
+    @IsOptional()
+    folder: string;
+
+    @ApiProperty()
+    @IsArray()
+    tags: string[];
 
     @ApiProperty({ isArray: true, type: VocabularyDto })
+    @IsArray()
     vocabularies: VocabularyDto[];
 }

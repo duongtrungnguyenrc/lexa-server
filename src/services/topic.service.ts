@@ -2,15 +2,15 @@
  * Created by Duong Trung Nguyen on 2024/1/24.
  */
 
-import { MultipleChoiceAnswer, Topic, User, Vocabulary } from "@/models/schemas";
-import { BadRequestException, HttpStatus, Injectable } from "@nestjs/common";
+import { Folder, MultipleChoiceAnswer, Topic, User, Vocabulary } from "@/models/schemas";
+import { BadRequestException, HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { UserService } from "./user.service";
-import { CloudinaryResponse, CreateTopicDto } from "@/models/dtos";
+import { CreateTopicDto, CreateTopicFolderDto } from "@/models/dtos";
 import { CloudinaryService } from "./cloudinary.service";
 import { BaseResponseModel } from "@/models";
-import { InvalidQueryParamException } from "@/exceptions";
+import { InvalidQueryParamException, ResourceNotFoundException } from "@/exceptions";
 
 @Injectable()
 export class TopicService {
@@ -21,28 +21,23 @@ export class TopicService {
         private readonly vocabularyModel: Model<Vocabulary>,
         @InjectModel(MultipleChoiceAnswer.name)
         private readonly multipleChoiceAnswerModel: Model<MultipleChoiceAnswer>,
+        @InjectModel(Folder.name)
+        private readonly folderModel: Model<Folder>,
         private readonly userService: UserService,
         private readonly cloudinaryService: CloudinaryService,
     ) {}
 
-    async findTopicsByName(keyword: string, limit?: number) {
-        try {
-            if (!keyword) {
-                throw new InvalidQueryParamException("invalid keyword value");
-            }
-            const topics: Topic[] = await this.topicModel
-                .find(
-                    {
-                        name: { $regex: keyword, $options: "i" },
-                    },
-                    { vocabularies: false },
-                )
-                .limit(limit ?? 20);
+    async createTopicFolder(createTopicFolderDto: CreateTopicFolderDto, request: Request) {
+        const user: User = await this.userService.getUserFromRequest(request);
 
-            return new BaseResponseModel("Successfully to find topic by keyword", topics);
-        } catch (error) {
-            throw new BadRequestException(new BaseResponseModel(error.message));
-        }
+        try {
+            const createdFolder = await this.folderModel.create({
+                author: user,
+                ...createTopicFolderDto,
+            });
+
+            return new BaseResponseModel("Successfully to create new Folder", createdFolder);
+        } catch (error) {}
     }
 
     async createTopic(
@@ -50,40 +45,111 @@ export class TopicService {
         payload: CreateTopicDto,
         request: Request,
     ): Promise<BaseResponseModel> {
-        const user: User | null = await this.userService.getUserFromRequest(request);
+        const user: User = await this.userService.getUserFromRequest(request);
 
         try {
             const { vocabularies, ...newTopicData } = payload;
 
-            const createdVocabularies: Promise<Vocabulary[]> = Promise.all(
+            const createVocabulariesTask: Promise<Vocabulary[]> = Promise.all(
                 vocabularies.map(async (vocabulary) => {
-                    const { multipleChoiceAnswers, ...newVocabularyData } = vocabulary;
+                    const { answers, ...newVocabularyData } = vocabulary;
 
-                    const createdMultipleChoiceAnswers: Promise<MultipleChoiceAnswer[]> = Promise.all(
-                        vocabularies.map(async (answer) => {
-                            return await this.multipleChoiceAnswerModel.create(answer);
-                        }),
-                    );
+                    const createdMultipleChoiceAnswers: MultipleChoiceAnswer[] =
+                        await this.multipleChoiceAnswerModel.create(answers);
 
-                    return await this.vocabularyModel.create({
-                        multipleChoiceAnswers: await createdMultipleChoiceAnswers,
+                    return this.vocabularyModel.create({
+                        multipleChoiceAnswers: createdMultipleChoiceAnswers,
                         ...newVocabularyData,
                     });
                 }),
             );
 
-            const uploadedImage: Promise<CloudinaryResponse> = file && this.cloudinaryService.uploadFile(file);
+            const [createdVocabularies, uploadedImage] = await Promise.all([
+                createVocabulariesTask,
+                file ? this.cloudinaryService.uploadFile(file) : null,
+            ]);
 
             const createdTopic: Topic = await this.topicModel.create({
                 author: user,
-                thumbnail: (await uploadedImage)?.secure_url,
-                vocabularies: await createdVocabularies,
+                thumbnail: uploadedImage?.secure_url,
+                vocabularies: createdVocabularies,
                 ...newTopicData,
             });
 
             return new BaseResponseModel("Successfully to create new topic", createdTopic);
         } catch (error) {
             throw new BaseResponseModel("Failed to create new topic: " + error, null);
+        }
+    }
+
+    async getTopicById(id: string, detail?: boolean) {
+        try {
+            const query = this.topicModel.findOne({ _id: id })?.lean();
+
+            if (detail) {
+                query.populate({
+                    path: "vocabularies",
+                    populate: {
+                        path: "multipleChoiceAnswers",
+                    },
+                });
+            } else {
+                query.select("-vocabularies").populate("author");
+            }
+
+            const topic = (await query.lean()) as Topic | null;
+
+            if (!topic) throw new HttpException("Topic does not exists", HttpStatus.NO_CONTENT);
+
+            return new BaseResponseModel("Successfully to get topic", topic);
+        } catch (error) {
+            throw new HttpException("Invalid topic id", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    async getRootTopicByCurrentUser(request: Request) {
+        const user: User = await this.userService.getUserFromRequest(request);
+
+        try {
+            const topicsRequest = this.topicModel
+                .find({
+                    author: user,
+                })
+                .select("-vocabularies");
+
+            const foldersRequest = this.folderModel.find({
+                author: user,
+            });
+
+            const [topics, folders] = await Promise.all([topicsRequest.exec(), foldersRequest.exec()]);
+
+            return new BaseResponseModel("Successfully to get root topics", {
+                topics,
+                folders,
+            });
+        } catch (error) {
+            throw new BadRequestException(new BaseResponseModel(error.message));
+        }
+    }
+
+    async getFolderContent(folderId: string, request: Request) {
+        try {
+            const user: User = await this.userService.getUserFromRequest(request);
+
+            if (!folderId) {
+                throw new InvalidQueryParamException("Invalid query params (id)");
+            }
+
+            const folder: Folder | null = await this.folderModel.findOne({ _id: folderId, author: user?.id }).lean();
+
+            if (!folder) throw new ResourceNotFoundException("Folder not found");
+
+            const topics = await this.topicModel.find({ folder: folder._id }).lean();
+            const folders = await this.folderModel.find({ root: folder._id }).lean();
+
+            return new BaseResponseModel("Successfully to get folder content", { topics, folders });
+        } catch (error) {
+            throw new BadRequestException(new BaseResponseModel(error.message));
         }
     }
 }

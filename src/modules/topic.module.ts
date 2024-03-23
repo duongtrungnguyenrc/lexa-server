@@ -1,5 +1,7 @@
 import { TopicController } from "@/controllers";
 import {
+    Folder,
+    FolderSchema,
     MultipleChoiceAnswer,
     MultipleChoiceAnswerSchema,
     Topic,
@@ -22,6 +24,7 @@ import { UserModule } from "./user.module";
             { name: User.name, schema: UserSchema },
             { name: Vocabulary.name, schema: VocabularySchema },
             { name: MultipleChoiceAnswer.name, schema: MultipleChoiceAnswerSchema },
+            { name: Folder.name, schema: FolderSchema },
         ]),
     ],
     controllers: [TopicController],

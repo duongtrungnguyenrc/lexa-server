@@ -8,6 +8,9 @@ export class Topic extends BaseSchema {
     @Prop({ default: "" })
     name: string;
 
+    @Prop({ default: "" })
+    description: string;
+
     @Prop({ default: true })
     visibility: boolean;
 
@@ -17,11 +20,14 @@ export class Topic extends BaseSchema {
     @Prop({ default: new Date() })
     createdTime: Date;
 
+    @Prop()
+    tags: string[];
+
     @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "User" })
     author: User;
 
-    @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Folder" }] })
-    folders: Folder[];
+    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "Folder" })
+    folder: Folder;
 
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Vocabulary" }] })
     vocabularies: Vocabulary[];

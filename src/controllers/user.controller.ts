@@ -30,16 +30,22 @@ export class UserController {
         return;
     }
 
-    @HasRole("ROLE_USER", "ROLE_ADMIN")
+    @HasRole("*")
     @Post("update-avatar")
     @UseInterceptors(FileInterceptor("file"))
     async updateAvatar(@UploadedFile() file: Express.Multer.File, @Req() request: Request) {
         return await this.userService.updateAvatar(file, request);
     }
 
-    @HasRole("ROLE_USER", "ROLE_ADMIN")
+    @HasRole("*")
     @Post("update-pofile")
     async updateProfile(@Body() newProfile: UpdateProfileDto, @Req() request: Request) {
         return await this.userService.updateProfile(newProfile, request);
+    }
+
+    @HasRole("*")
+    @Get("/profile")
+    async getAuthenticatedProfile(@Req() request: Request) {
+        return await this.userService.getUserProfile(request);
     }
 }

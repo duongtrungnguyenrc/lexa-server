@@ -10,7 +10,7 @@ export class User extends BaseSchema {
     @Prop({ type: String })
     email: string;
 
-    @Prop({ type: String, default: "" })
+    @Prop({ type: String, default: "", select: false })
     @Exclude()
     password: string;
 

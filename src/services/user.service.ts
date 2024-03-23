@@ -13,7 +13,7 @@ import { CloudinaryService } from "./cloudinary.service";
 import { InjectModel } from "@nestjs/mongoose";
 import { User } from "@/models/schemas";
 import { Model } from "mongoose";
-import { EmailAlreadyExistsException, InvalidPasswordException, UserNotFoundException } from "@/exceptions";
+import { EmailAlreadyExistsException, InvalidPasswordException, ResourceNotFoundException } from "@/exceptions";
 
 @Injectable()
 export class UserService {
@@ -25,12 +25,15 @@ export class UserService {
         private readonly cloudinaryService: CloudinaryService,
     ) {}
 
-    async getUserFromRequest(request: Request): Promise<User> {
+    async getUserFromRequest(request: Request, excludes: string[] = []): Promise<User> {
         const authToken: string = RequestHandlerUtils.getAuthToken(request);
         const decodedToken: User = this.jwtService.decode(authToken);
-        return await this.userModel.findOne({
-            _id: decodedToken.id,
-        });
+        return await this.userModel
+            .findOne({
+                _id: decodedToken.id,
+            })
+            .select([...excludes.map((key) => `-${key}`)])
+            .lean();
     }
 
     async createUser(newUser: CreateUserDto): Promise<BaseResponseModel> {
@@ -51,6 +54,9 @@ export class UserService {
                 })
             )?.toObject();
 
+            delete createdUser.password;
+            delete createdUser.records;
+
             this.mailerService.sendMail({
                 to: createdUser.email,
                 subject: "WELCOME TO VOCAB MASTER",
@@ -66,13 +72,15 @@ export class UserService {
 
     async validateUser(user: LoginDto) {
         try {
-            const existingUser: User = (await this.findUserByEmail(user.email))?.toObject();
+            const { password, ...existingUser } = (
+                await this.findUserByEmail(user.email, true, ["records"])
+            )?.toObject();
 
             if (!existingUser) {
-                throw new UserNotFoundException();
+                throw new ResourceNotFoundException("User not found. please check your email or password");
             }
 
-            const isPasswordMatch = await bcrypt.compare(user.password, existingUser?.password);
+            const isPasswordMatch = await bcrypt.compare(user.password, password);
 
             if (!isPasswordMatch) {
                 throw new InvalidPasswordException();
@@ -94,15 +102,18 @@ export class UserService {
         }
     }
 
-    async findUserByEmail(email: string): Promise<User> {
-        return await this.userModel.findOne({
-            email: email,
-        });
+    async findUserByEmail(email: string, includePassword: boolean = false, exclude?: string[]): Promise<User> {
+        return await this.userModel
+            .findOne({
+                email: email,
+            })
+            .select([includePassword ? "+password" : "", ...(exclude?.map((key) => `-${key}`) ?? "")])
+            .exec();
     }
 
     async getUserProfile(request: Request) {
         try {
-            const user: User | null = await this.getUserFromRequest(request);
+            const user: User | null = await this.getUserFromRequest(request, ["records"]);
             delete user.password;
 
             return new BaseResponseModel("Successfully to get user profile!", user);
