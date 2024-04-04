@@ -1,6 +1,6 @@
-import { Body, Controller, Get, HttpCode, Post, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { UserService } from "@/services/user.service";
-import { CreateUserDto, LoginDto, UpdateProfileDto } from "@/models/dtos";
+import { CreateUserDto, UpdateProfileDto } from "@/models/dtos";
 import { BaseResponseModel } from "@/models";
 import { AuthGuard } from "@/guards";
 import { HasRole } from "@/decorators";
@@ -12,12 +12,6 @@ import { ApiTags } from "@nestjs/swagger";
 @UseGuards(AuthGuard)
 export class UserController {
     constructor(private readonly userService: UserService) {}
-
-    @Post("login")
-    @HttpCode(200)
-    async login(@Body() user: LoginDto) {
-        return await this.userService.validateUser(user);
-    }
 
     @Post("create")
     async createUser(@Body() newUser: CreateUserDto): Promise<BaseResponseModel> {
@@ -44,8 +38,13 @@ export class UserController {
     }
 
     @HasRole("*")
-    @Get("/profile")
-    async getAuthenticatedProfile(@Req() request: Request) {
-        return await this.userService.getUserProfile(request);
+    @Get("profile")
+    async getAuthenticatedProfile(@Req() request: Request, @Query("id") id?: string) {
+        return await this.userService.getUserProfile(request, id);
+    }
+
+    @Get("top-author")
+    async getTopAuthors(@Query("limit") limit?: number) {
+        return await this.userService.getTopAuthors(limit);
     }
 }

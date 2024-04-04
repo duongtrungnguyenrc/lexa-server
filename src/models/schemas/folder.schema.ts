@@ -13,6 +13,9 @@ export class Folder extends BaseSchema {
 
     @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "Folder", default: null })
     root: Folder;
+
+    @Prop({ default: new Date() })
+    lastModifyTime: Date;
 }
 
 export const FolderSchema = SchemaFactory.createForClass(Folder);

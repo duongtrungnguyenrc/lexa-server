@@ -11,15 +11,22 @@ import { JwtService } from "@nestjs/jwt";
 import { RequestHandlerUtils } from "@/utils";
 import { CloudinaryService } from "./cloudinary.service";
 import { InjectModel } from "@nestjs/mongoose";
-import { User } from "@/models/schemas";
+import { LearningRecord, Topic, User } from "@/models/schemas";
 import { Model } from "mongoose";
 import { EmailAlreadyExistsException, InvalidPasswordException, ResourceNotFoundException } from "@/exceptions";
+import { Post } from "@/models/schemas/post.schema";
 
 @Injectable()
 export class UserService {
     constructor(
         @InjectModel(User.name)
         private readonly userModel: Model<User>,
+        @InjectModel(Topic.name)
+        private readonly topicModel: Model<Topic>,
+        @InjectModel(Post.name)
+        private readonly postModel: Model<Post>,
+        @InjectModel(LearningRecord.name)
+        private readonly learningRecordModel: Model<LearningRecord>,
         private readonly jwtService: JwtService,
         private readonly mailerService: MailerService,
         private readonly cloudinaryService: CloudinaryService,
@@ -30,10 +37,53 @@ export class UserService {
         const decodedToken: User = this.jwtService.decode(authToken);
         return await this.userModel
             .findOne({
-                _id: decodedToken.id,
+                _id: decodedToken?.id,
+            })
+            .select([...excludes.map((key) => `-${key}`)])
+            .exec();
+    }
+
+    async getUserbyId(id: string, excludes: string[] = []): Promise<User> {
+        return await this.userModel
+            .findOne({
+                _id: id,
             })
             .select([...excludes.map((key) => `-${key}`)])
             .lean();
+    }
+
+    async getTopAuthors(limit?: number) {
+        try {
+            const authors: User[] = (
+                await this.userModel.aggregate([
+                    {
+                        $lookup: {
+                            from: "topics",
+                            localField: "_id",
+                            foreignField: "author",
+                            as: "topics",
+                        },
+                    },
+                    {
+                        $addFields: {
+                            topicCount: { $size: "$topics" },
+                        },
+                    },
+                    {
+                        $sort: { topicCount: -1 },
+                    },
+                    {
+                        $limit: limit ?? 10,
+                    },
+                ])
+            ).map((author) => {
+                delete author.topics;
+                return author;
+            });
+            return new BaseResponseModel("Successfully to get top authors", authors);
+        } catch (error) {
+            throw error;
+        }
     }
 
     async createUser(newUser: CreateUserDto): Promise<BaseResponseModel> {
@@ -70,38 +120,6 @@ export class UserService {
         }
     }
 
-    async validateUser(user: LoginDto) {
-        try {
-            const { password, ...existingUser } = (
-                await this.findUserByEmail(user.email, true, ["records"])
-            )?.toObject();
-
-            if (!existingUser) {
-                throw new ResourceNotFoundException("User not found. please check your email or password");
-            }
-
-            const isPasswordMatch = await bcrypt.compare(user.password, password);
-
-            if (!isPasswordMatch) {
-                throw new InvalidPasswordException();
-            }
-
-            const userPayload = {
-                id: existingUser._id,
-                email: existingUser.email,
-                name: existingUser.name,
-                role: existingUser.role,
-            };
-
-            return new BaseResponseModel("Login successfully!", {
-                accessToken: await this.jwtService.signAsync(userPayload),
-                user: existingUser,
-            });
-        } catch (error) {
-            throw new BadRequestException(new BaseResponseModel(error.message));
-        }
-    }
-
     async findUserByEmail(email: string, includePassword: boolean = false, exclude?: string[]): Promise<User> {
         return await this.userModel
             .findOne({
@@ -111,12 +129,28 @@ export class UserService {
             .exec();
     }
 
-    async getUserProfile(request: Request) {
+    async getUserProfile(request: Request, id?: string) {
         try {
-            const user: User | null = await this.getUserFromRequest(request, ["records"]);
-            delete user.password;
+            const user: User | null = id
+                ? await this.getUserbyId(id)
+                : await this.getUserFromRequest(request, ["records"]);
 
-            return new BaseResponseModel("Successfully to get user profile!", user);
+            const [topicsCount, archivementsCount, followersCount] = await Promise.all([
+                this.topicModel.countDocuments({ author: user }),
+                this.postModel.countDocuments({ author: user }),
+                this.userModel.countDocuments({ follows: user }),
+            ]);
+
+            return new BaseResponseModel("Successfully to get user profile!", {
+                _id: user._id,
+                avatar: user.avatar,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                topics: topicsCount,
+                archivements: archivementsCount,
+                followers: followersCount,
+            });
         } catch (error) {
             throw error;
         }

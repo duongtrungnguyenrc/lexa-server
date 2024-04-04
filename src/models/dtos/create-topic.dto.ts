@@ -30,7 +30,7 @@ class VocabularyDto {
 
     @ApiProperty({ type: MultipleChoiceAnswerDto, isArray: true })
     @IsArray()
-    answers: MultipleChoiceAnswerDto[];
+    multipleChoiceAnswers: MultipleChoiceAnswerDto[];
 }
 
 export class CreateTopicDto {
@@ -38,23 +38,19 @@ export class CreateTopicDto {
     name: string;
 
     @ApiProperty()
-    @IsBoolean()
     visibility: boolean;
 
     @ApiProperty()
-    @IsString()
     description: string;
 
     @ApiProperty()
-    @IsString()
     @IsOptional()
-    folder: string;
+    folder?: string;
 
     @ApiProperty()
-    @IsArray()
-    tags: string[];
+    @IsOptional()
+    tags?: string[];
 
     @ApiProperty({ isArray: true, type: VocabularyDto })
-    @IsArray()
     vocabularies: VocabularyDto[];
 }

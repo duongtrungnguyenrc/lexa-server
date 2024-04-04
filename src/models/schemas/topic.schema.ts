@@ -18,15 +18,18 @@ export class Topic extends BaseSchema {
     thumbnail: string;
 
     @Prop({ default: new Date() })
-    createdTime: Date;
+    createdTime: string;
 
-    @Prop()
+    @Prop({ default: new Date() })
+    lastModifyTime: Date;
+
+    @Prop({ default: [] })
     tags: string[];
 
-    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "User" })
+    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "User", populate: true })
     author: User;
 
-    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "Folder" })
+    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "Folder", populate: true })
     folder: Folder;
 
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Vocabulary" }] })

@@ -26,6 +26,9 @@ export class User extends BaseSchema {
     @Prop({ enum: ["ROLE_ADMIN", "ROLE_USER"], default: "ROLE_USER" })
     role: EUserRole;
 
+    @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], default: [] })
+    follows: User[];
+
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "LearningRecord" }], default: [] })
     records: LearningRecord[];
 }
