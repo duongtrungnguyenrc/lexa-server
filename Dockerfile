@@ -1,20 +1,28 @@
-FROM node:20.10.0
+FROM node:20-alpine AS development
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm install
-
-FROM python:3.10
-
-WORKDIR /usr/src/app
-
-COPY --from=0 /usr/src/app/package*.json ./
-
-RUN pip install --upgrade pip
-RUN pip install pyspark
+RUN npm install --only=development
 
 COPY . .
 
-EXPOSE 3000
+RUN npm run build
+
+FROM node:20-alpine as production
+
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+RUN npm install --only=production
+
+COPY . .
+
+COPY --from=development /usr/src/app/dist ./dist
+
+CMD ["node", "dist/main"]
