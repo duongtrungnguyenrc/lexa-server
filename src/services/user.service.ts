@@ -2,7 +2,15 @@
  * Created by Duong Trung Nguyen on 2024/1/24.
  */
 
-import { BadRequestException, HttpException, HttpStatus, Injectable, NotAcceptableException } from "@nestjs/common";
+import {
+    BadRequestException,
+    ForbiddenException,
+    HttpException,
+    HttpStatus,
+    Injectable,
+    NotAcceptableException,
+    UnauthorizedException,
+} from "@nestjs/common";
 import { CloudinaryResponse, CreateUserDto, UpdateProfileDto, LoginDto } from "@/models/dtos";
 import * as bcrypt from "bcrypt";
 import { BaseResponseModel } from "@/models";
@@ -43,7 +51,7 @@ export class UserService {
             .exec();
     }
 
-    async getUserbyId(id: string, excludes: string[] = []): Promise<User> {
+    async getUserbyId(id?: string, excludes: string[] = []): Promise<User> {
         return await this.userModel
             .findOne({
                 _id: id,
@@ -134,6 +142,8 @@ export class UserService {
             const user: User | null = id
                 ? await this.getUserbyId(id)
                 : await this.getUserFromRequest(request, ["records"]);
+
+            if (!user) throw new UnauthorizedException("User not found!");
 
             const [topicsCount, archivementsCount, followersCount] = await Promise.all([
                 this.topicModel.countDocuments({ author: user }),

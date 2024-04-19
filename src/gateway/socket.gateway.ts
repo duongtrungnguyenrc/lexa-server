@@ -13,7 +13,7 @@ import {
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 
-@WebSocketGateway(80, { namespace: "chat" })
+@WebSocketGateway(3001, { namespace: "chat", cors: "*" })
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer()
     private server: Server;
@@ -25,12 +25,9 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         this.server = server;
     }
 
-    handleConnection(client: Socket, ..._args: any[]) {
-        console.log("Client connected:", client.id);
-    }
+    handleConnection(client: Socket, ..._args: any[]) {}
 
     handleDisconnect(client: Socket) {
-        console.log("Client disconnected:", client.id);
         this.rooms.forEach((value, key) => {
             if (value.clients.has(client.id)) {
                 value.clients.delete(client.id);
@@ -76,7 +73,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         }
     }
 
-    @SubscribeMessage("message")
+    @SubscribeMessage("send")
     async onMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: string) {
         try {
             const { roomId, userId, message } = JSON.parse(payload);
@@ -91,6 +88,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
             roomData.clients.forEach((clientId) => {
                 if (clientId !== client.id) {
                     this.server.to(clientId).emit("receive", createdMessage);
+                } else {
+                    this.server.to(clientId).emit("sent", createdMessage);
                 }
             });
         } catch (error) {

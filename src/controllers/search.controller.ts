@@ -1,7 +1,14 @@
 import { SearchService } from "@/services";
-import { Controller } from "@nestjs/common";
+import { Controller, Get, Query, Req } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 
-@Controller("rest/search")
+@Controller("search")
+@ApiTags("search")
 export class SearchController {
-    constructor(private readonly service: SearchService) {}
+    constructor(private readonly searchService: SearchService) {}
+
+    @Get("")
+    async search(@Req() request: Request, @Query("key") key: string, @Query("limit") limit?: number) {
+        return this.searchService.search(request, key, limit);
+    }
 }

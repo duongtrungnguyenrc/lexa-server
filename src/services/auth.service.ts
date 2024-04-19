@@ -1,5 +1,5 @@
-import { BadRequestException, HttpException, HttpStatus, Inject, Injectable, forwardRef } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
+import { BadRequestException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
+import { JwtService, TokenExpiredError } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 import { CreateUserDto, LoginDto } from "@/models/dtos";
 import { BaseResponseModel } from "@/models";
@@ -7,16 +7,21 @@ import { UserService } from "@/services";
 import { InvalidPasswordException, ResourceNotFoundException } from "@/exceptions";
 import { OAuth2Client } from "google-auth-library";
 import { User } from "@/models/schemas";
+import { RequestHandlerUtils } from "@/utils";
+import { Exception } from "handlebars";
+import { v4 as uuidv4 } from "uuid";
 
 @Injectable()
 export class AuthService {
+    private blackList: string[] = [];
+
     constructor(
         private readonly userService: UserService,
         private jwtService: JwtService,
         @Inject("GOOGLE_AUTH") private readonly oauth2Client: OAuth2Client,
     ) {}
 
-    async validateUser(emailOrUser: string | LoginDto): Promise<BaseResponseModel> {
+    async validate(emailOrUser: string | LoginDto): Promise<BaseResponseModel> {
         try {
             let email: string;
             let password: string;
@@ -40,18 +45,97 @@ export class AuthService {
                 throw new InvalidPasswordException();
             }
 
+            const sessionId = uuidv4();
+
+            const jwtPayload = {
+                id: existingUser._id,
+                email: existingUser.email,
+                name: existingUser.name,
+                role: existingUser.role,
+                sessionId: sessionId,
+            };
+
+            const accessToken: string = this.jwtService.sign(jwtPayload, {
+                expiresIn: "1 minutes",
+            });
+
+            const refreshToken: string = this.jwtService.sign(
+                { sessionId },
+                {
+                    expiresIn: "14 days",
+                },
+            );
+
             return new BaseResponseModel("Login successfully!", {
-                accessToken: await this.jwtService.signAsync({
-                    id: existingUser._id,
-                    email: existingUser.email,
-                    name: existingUser.name,
-                    role: existingUser.role,
-                }),
+                accessToken,
+                refreshToken,
                 user: existingUser,
             });
         } catch (error) {
             throw new BadRequestException(new BaseResponseModel(error.message));
         }
+    }
+
+    async tokenValidate(request: Request, refreshToken: string): Promise<BaseResponseModel> {
+        const authToken: string = RequestHandlerUtils.getAuthToken(request);
+
+        if (!refreshToken) throw new BadRequestException("Invalid refresh token!");
+
+        try {
+            let accessToken: string = authToken;
+
+            try {
+                await this.jwtService.verify(authToken);
+            } catch (error) {
+                if (error instanceof TokenExpiredError) {
+                    accessToken = await this.reGenerateToken(authToken, refreshToken);
+                } else {
+                    throw new UnauthorizedException(error.message);
+                }
+            }
+
+            if (this.blackList.includes(authToken)) {
+                throw new UnauthorizedException("Token has exprise");
+            }
+
+            const existingUser: User = await this.userService.getUserFromRequest(request);
+
+            if (!existingUser) {
+                throw new UnauthorizedException("Invalid token");
+            }
+
+            return new BaseResponseModel("Login successfully!", {
+                accessToken,
+                refreshToken,
+                user: existingUser,
+            });
+        } catch (error) {
+            throw new BadRequestException(error.message);
+        }
+    }
+
+    async reGenerateToken(authToken: string, refreshToken: string) {
+        try {
+            const decodedToken = this.jwtService.verify(refreshToken);
+            const { iat, exp, ...payload } = this.jwtService.decode(authToken);
+
+            if (decodedToken["sessionId"] !== payload["sessionId"]) throw new Exception("Tokens session not match!");
+            return this.jwtService.sign(payload, {
+                expiresIn: "1 minutes",
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async destroyToken(request: Request) {
+        const authToken: string = RequestHandlerUtils.getAuthToken(request);
+
+        if (!authToken) {
+            throw new UnauthorizedException("Invalid token");
+        }
+
+        this.blackList.push(authToken);
     }
 
     googleAuth() {
@@ -99,7 +183,7 @@ export class AuthService {
                     user: createdUser,
                 });
             }
-            loginResponse = await this.validateUser(userInfo.email);
+            loginResponse = await this.validate(userInfo.email);
             return `applinks://lexa.app?payload=${JSON.stringify(loginResponse)}`;
         } catch (error) {
             throw new BadRequestException("Error fetching Google user info: " + error.message);

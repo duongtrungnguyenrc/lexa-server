@@ -35,17 +35,53 @@ export class ChatService {
         }
     }
 
-    async createChatRoom(request: Request, receiverId: string) {
+    async getMessages(chatRoomId: string, page: number, limit: number): Promise<BaseResponseModel> {
+        const existingRoom = await this.chatRoomModel.findById(chatRoomId).populate({
+            path: "messages",
+            options: {
+                sort: { time: -1 },
+                skip: (page - 1) * limit,
+                limit: limit,
+            },
+            populate: {
+                path: "sender",
+            },
+        });
+        existingRoom.messages = existingRoom.messages?.reverse();
+
+        if (!existingRoom) {
+            throw new Error("Chat room not found");
+        }
+
+        return new BaseResponseModel("Successfully to get messages", existingRoom.messages);
+    }
+
+    async getChatRoom(request: Request, receiverId: string, page: number = 1, limit: number = 10) {
         try {
             const user: User = await this.userService.getUserFromRequest(request);
             const receiver: User = await this.userService.getUserbyId(receiverId);
 
-            const existingRoom = await this.chatRoomModel
-                .findOne({ users: [user, receiver] })
+            const existingRoom: ChatRoom = await this.chatRoomModel
+                .findOne({ users: { $all: [user, receiver] } })
                 .populate("users")
+                .populate({
+                    path: "messages",
+                    options: {
+                        sort: { time: -1 },
+                        skip: (page - 1) * limit,
+                        limit: limit,
+                    },
+                    populate: {
+                        path: "sender",
+                    },
+                })
                 .exec();
 
-            if (existingRoom) return new BaseResponseModel("Room already exists", existingRoom);
+            if (existingRoom) {
+                existingRoom.messages = existingRoom.messages?.reverse();
+
+                return new BaseResponseModel("Room already exists", existingRoom);
+            }
 
             const createdRoom: ChatRoom = await (
                 await this.chatRoomModel.create({
@@ -65,12 +101,13 @@ export class ChatService {
             const createdMessage = await this.MessageModel.create({
                 sender: user,
                 message: payload.message,
+                time: new Date(),
             });
 
             room.messages.push(createdMessage);
             await room.save();
 
-            return createdMessage;
+            return await createdMessage.populate("sender");
         } catch (error) {
             throw error;
         }

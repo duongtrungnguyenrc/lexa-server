@@ -14,12 +14,12 @@ export class SearchService {
         private readonly topicModel: Model<Topic>,
     ) {}
 
-    async search(keyword: string, limit: number) {
+    async search(request: Request, keyword: string, limit?: number) {
         try {
             if (!keyword) {
                 throw new InvalidQueryParamException("invalid keyword value");
             }
-            
+
             const topics: Topic[] = await this.topicModel
                 .find(
                     {
@@ -28,8 +28,8 @@ export class SearchService {
                     { vocabularies: false },
                 )
                 .limit(limit ?? 20);
-                    
-                const users: User[] = await this.userModel
+
+            const profiles: User[] = await this.userModel
                 .find(
                     {
                         name: { $regex: keyword, $options: "i" },
@@ -38,7 +38,10 @@ export class SearchService {
                 )
                 .limit(limit ?? 20);
 
-            return new BaseResponseModel("Successfully to find topic by keyword", topics);
+            return new BaseResponseModel("Successfully to find topic by keyword", {
+                topics,
+                profiles,
+            });
         } catch (error) {
             throw new BadRequestException(new BaseResponseModel(error.message));
         }

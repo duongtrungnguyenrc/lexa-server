@@ -1,5 +1,5 @@
 import { ChatService } from "@/services";
-import { Body, Controller, Get, Post, Req } from "@nestjs/common";
+import { Controller, Get, Query, Req } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 
 @ApiTags("chat")
@@ -12,8 +12,18 @@ export class ChatController {
         return this.chatService.getUserRooms(request);
     }
 
-    @Post("room")
-    async createChatRoom(@Req() request: Request, @Body() body: { receiverId: string }) {
-        return this.chatService.createChatRoom(request, body.receiverId);
+    @Get("room")
+    async getChatRoom(
+        @Req() request: Request,
+        @Query("receiver") receiverId: string,
+        @Query("page") page: number,
+        @Query("limit") limit: number,
+    ) {
+        return this.chatService.getChatRoom(request, receiverId, page, limit);
+    }
+
+    @Get("messages")
+    async getMessage(@Query("roomId") roomId: string, @Query("page") page: number, @Query("limit") limit?: number) {
+        return this.chatService.getMessages(roomId, page, limit);
     }
 }

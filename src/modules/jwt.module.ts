@@ -6,15 +6,13 @@ import { JwtModule } from "@nestjs/jwt";
     imports: [
         ConfigModule.forRoot({ envFilePath: ".env" }),
         JwtModule.register({
-            secret: process.env.AUTHORIZATION_SECRET,
-            signOptions: { expiresIn: "150 days" },
+            secret: process.env.JWT_ACCESS_SECRET,
         }),
     ],
     exports: [
         JwtModule.register({
-            secret: process.env.AUTHORIZATION_SECRET,
-            signOptions: { expiresIn: "150 days" },
+            secret: process.env.JWT_ACCESS_SECRET,
         }),
     ],
 })
-export class JwtConfigModule {}
+export class JwtAccessModule {}

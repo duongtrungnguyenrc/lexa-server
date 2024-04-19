@@ -9,7 +9,7 @@ export class ChatRoom extends BaseSchema {
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }] })
     users: User[];
 
-    @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Vocabulary", default: [] }] })
+    @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Message", default: [] }] })
     messages: Message[];
 }
 
