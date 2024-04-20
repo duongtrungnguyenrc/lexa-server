@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { UserService } from "@/services/user.service";
-import { CreateUserDto, UpdateProfileDto } from "@/models/dtos";
+import { CreateUserDto, ResetPasswordDto, UpdateProfileDto } from "@/models/dtos";
 import { BaseResponseModel } from "@/models";
 import { AuthGuard } from "@/guards";
 import { HasRole } from "@/decorators";
@@ -46,5 +46,15 @@ export class UserController {
     @Get("top-author")
     async getTopAuthors(@Query("limit") limit?: number) {
         return await this.userService.getTopAuthors(limit);
+    }
+
+    @Get("forgot-password")
+    async forgotPassword(@Query("userId") userId: string) {
+        return await this.userService.createResetPasswordTransaction(userId);
+    }
+
+    @Post("reset-password")
+    async resetPassword(@Body() payload: ResetPasswordDto) {
+        return await this.userService.resetPassword(payload);
     }
 }

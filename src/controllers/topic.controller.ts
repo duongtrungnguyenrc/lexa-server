@@ -3,6 +3,7 @@ import { AuthGuard } from "@/guards";
 import { UpdateFolderDto, CreateTopicDto, CreateTopicFolderDto, UpdateTopicDto } from "@/models/dtos";
 import { CreateTopicSerializePipe } from "@/pipes/create-topic-serialization.pipe";
 import { TopicService } from "@/services";
+import { CacheInterceptor } from "@nestjs/cache-manager";
 import { Body, Controller, Get, Post, Put, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
@@ -10,6 +11,7 @@ import { ApiTags } from "@nestjs/swagger";
 @ApiTags("topic")
 @Controller("topic")
 @UseGuards(AuthGuard)
+@UseInterceptors(CacheInterceptor)
 export class TopicController {
     constructor(private readonly topicService: TopicService) {}
 

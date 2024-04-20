@@ -14,23 +14,25 @@ export class AuthController {
 
     @Post("auth")
     @HttpCode(200)
-    async login(@Body() user: LoginDto) {
+    async auth(@Body() user: LoginDto) {
         return await this.authService.validate(user);
     }
 
     @Post("token-auth")
     @HttpCode(200)
-    async tokenLogin(@Req() request: Request, @Body() payload: { refreshToken: string }) {
+    async tokenAuth(@Req() request: Request, @Body() payload: { refreshToken: string }) {
         return await this.authService.tokenValidate(request, payload.refreshToken);
     }
 
-    // @Post("extend-session")
-    // async extendAuthSession(@Req() request: Request, @Body() payload: { refreshToken: string }) {
-    //     return await this.authService.extendToken(request, payload.refreshToken);
-    // }
+    @Post("logout")
+    @HttpCode(200)
+    @HasRole("*")
+    async extendAuthSession(@Req() request: Request) {
+        return await this.authService.inValidate(request);
+    }
 
-    @Get("google-login")
-    googleLogin(@Res() res: Response) {
+    @Get("google-auth")
+    googleAuth(@Res() res: Response) {
         return res.redirect(this.authService.googleAuth());
     }
 

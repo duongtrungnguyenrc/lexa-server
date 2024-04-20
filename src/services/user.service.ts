@@ -4,14 +4,14 @@
 
 import {
     BadRequestException,
-    ForbiddenException,
     HttpException,
     HttpStatus,
+    Inject,
     Injectable,
-    NotAcceptableException,
+    InternalServerErrorException,
     UnauthorizedException,
 } from "@nestjs/common";
-import { CloudinaryResponse, CreateUserDto, UpdateProfileDto, LoginDto } from "@/models/dtos";
+import { CloudinaryResponse, CreateUserDto, ResetPasswordDto, UpdateProfileDto } from "@/models/dtos";
 import * as bcrypt from "bcrypt";
 import { BaseResponseModel } from "@/models";
 import { MailerService } from "@nestjs-modules/mailer";
@@ -21,8 +21,12 @@ import { CloudinaryService } from "./cloudinary.service";
 import { InjectModel } from "@nestjs/mongoose";
 import { LearningRecord, Topic, User } from "@/models/schemas";
 import { Model } from "mongoose";
-import { EmailAlreadyExistsException, InvalidPasswordException, ResourceNotFoundException } from "@/exceptions";
+import { EmailAlreadyExistsException } from "@/exceptions";
 import { Post } from "@/models/schemas/post.schema";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
+import { v4 as uuidv4 } from "uuid";
+import { OTP_LENGTH } from "@/commons";
 
 @Injectable()
 export class UserService {
@@ -38,6 +42,7 @@ export class UserService {
         private readonly jwtService: JwtService,
         private readonly mailerService: MailerService,
         private readonly cloudinaryService: CloudinaryService,
+        @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     ) {}
 
     async getUserFromRequest(request: Request, excludes: string[] = []): Promise<User> {
@@ -117,7 +122,7 @@ export class UserService {
 
             this.mailerService.sendMail({
                 to: createdUser.email,
-                subject: "WELCOME TO VOCAB MASTER",
+                subject: "Welcome to Lexa",
                 template: "register",
                 context: { user: userInfo.name },
             });
@@ -206,8 +211,61 @@ export class UserService {
         }
     }
 
-    // async resetPassword(newPassword: UpdatePasswordDto, request: Request): Promise<BaseResponseModel> {
-    //     const user: User | null = await this.getUserFromRequest(request); ///
-    //     return;
-    // }
+    async createResetPasswordTransaction(userId: string) {
+        try {
+            const user: User = await this.getUserbyId(userId);
+
+            if (!user) throw new BadRequestException("Invalid user!");
+
+            const transactionId = uuidv4();
+            const transactionOTP = this.generateOTP();
+            this.cacheManager.set(transactionId, { transactionOTP, userId }, 15 * 60 * 1000);
+
+            this.mailerService.sendMail({
+                to: user.email,
+                subject: "Account Recovery OTP for Lexa Vocabulary Learning App",
+                template: "forgot-password",
+                context: { user: user.name, otp: transactionOTP },
+            });
+
+            return new BaseResponseModel("Successfully to create forgot password transaction!", {
+                userId,
+                transactionId,
+            });
+        } catch (e) {
+            throw new InternalServerErrorException(e);
+        }
+    }
+
+    private generateOTP() {
+        return Array.from({ length: OTP_LENGTH }, () => Math.floor(Math.random() * 10)).join("");
+    }
+
+    async resetPassword(payload: ResetPasswordDto) {
+        try {
+            const cachedTransaction = await this.cacheManager.get(payload.transactionId);
+
+            if (!cachedTransaction) {
+                throw new BadRequestException("Invalid transaction!");
+            }
+
+            const userId = cachedTransaction["userId"];
+            const transactionOtp = cachedTransaction["transactionOTP"];
+
+            if (payload.otp !== transactionOtp) throw new BadRequestException("Invalid OTP!");
+
+            await this.userModel.updateOne(
+                { _id: userId },
+                {
+                    password: await bcrypt.hash(payload.password, 10),
+                },
+            );
+
+            this.cacheManager.del(payload.transactionId);
+
+            return new BaseResponseModel("Reset password successful!");
+        } catch (error) {
+            throw error;
+        }
+    }
 }

@@ -4,20 +4,29 @@ import * as bcrypt from "bcrypt";
 import { CreateUserDto, LoginDto } from "@/models/dtos";
 import { BaseResponseModel } from "@/models";
 import { UserService } from "@/services";
+import {
+    ACCESS_TOKEN_EXPIRED_TIME,
+    APPLICATION_DEEPLINKS,
+    GOOGLE_EMAIL_SCOPE,
+    GOOGLE_GET_USER_INFO_URL,
+    GOOGLE_PROFILE_SCOPE,
+    REFRESH_TOKEN_EXPIRED_TIME,
+} from "@/commons";
 import { InvalidPasswordException, ResourceNotFoundException } from "@/exceptions";
 import { OAuth2Client } from "google-auth-library";
 import { User } from "@/models/schemas";
 import { RequestHandlerUtils } from "@/utils";
 import { Exception } from "handlebars";
 import { v4 as uuidv4 } from "uuid";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
 
 @Injectable()
 export class AuthService {
-    private blackList: string[] = [];
-
     constructor(
         private readonly userService: UserService,
         private jwtService: JwtService,
+        @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
         @Inject("GOOGLE_AUTH") private readonly oauth2Client: OAuth2Client,
     ) {}
 
@@ -56,13 +65,13 @@ export class AuthService {
             };
 
             const accessToken: string = this.jwtService.sign(jwtPayload, {
-                expiresIn: "1 minutes",
+                expiresIn: ACCESS_TOKEN_EXPIRED_TIME,
             });
 
             const refreshToken: string = this.jwtService.sign(
                 { sessionId },
                 {
-                    expiresIn: "14 days",
+                    expiresIn: REFRESH_TOKEN_EXPIRED_TIME,
                 },
             );
 
@@ -78,6 +87,7 @@ export class AuthService {
 
     async tokenValidate(request: Request, refreshToken: string): Promise<BaseResponseModel> {
         const authToken: string = RequestHandlerUtils.getAuthToken(request);
+        const blackList: string[] = await this.getBlackList();
 
         if (!refreshToken) throw new BadRequestException("Invalid refresh token!");
 
@@ -85,6 +95,7 @@ export class AuthService {
             let accessToken: string = authToken;
 
             try {
+                if (blackList.includes(authToken)) throw new TokenExpiredError("Token has expired", new Date());
                 await this.jwtService.verify(authToken);
             } catch (error) {
                 if (error instanceof TokenExpiredError) {
@@ -92,10 +103,6 @@ export class AuthService {
                 } else {
                     throw new UnauthorizedException(error.message);
                 }
-            }
-
-            if (this.blackList.includes(authToken)) {
-                throw new UnauthorizedException("Token has exprise");
             }
 
             const existingUser: User = await this.userService.getUserFromRequest(request);
@@ -121,32 +128,35 @@ export class AuthService {
 
             if (decodedToken["sessionId"] !== payload["sessionId"]) throw new Exception("Tokens session not match!");
             return this.jwtService.sign(payload, {
-                expiresIn: "1 minutes",
+                expiresIn: ACCESS_TOKEN_EXPIRED_TIME,
             });
         } catch (error) {
             throw error;
         }
     }
 
-    async destroyToken(request: Request) {
+    async inValidate(request: Request) {
         const authToken: string = RequestHandlerUtils.getAuthToken(request);
 
         if (!authToken) {
             throw new UnauthorizedException("Invalid token");
         }
 
-        this.blackList.push(authToken);
+        const blackList: string[] = await this.getBlackList();
+
+        await this.cacheManager.set("blacklist", JSON.stringify([...blackList, authToken]), 365 * 24 * 60 * 60 * 1000);
+        return new BaseResponseModel("Log out successfully");
+    }
+
+    async getBlackList(): Promise<string[]> {
+        const blackList: [] = JSON.parse(await this.cacheManager.get("blacklist")) ?? [];
+        return blackList;
     }
 
     googleAuth() {
-        const scopes = [
-            "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile",
-        ];
-
         const url: string = this.oauth2Client.generateAuthUrl({
             access_type: "online",
-            scope: scopes,
+            scope: [GOOGLE_EMAIL_SCOPE, GOOGLE_PROFILE_SCOPE],
         });
 
         return url;
@@ -156,7 +166,7 @@ export class AuthService {
         let loginResponse = null;
         try {
             const { tokens } = await this.oauth2Client.getToken(code);
-            const response = await fetch(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json`, {
+            const response = await fetch(GOOGLE_GET_USER_INFO_URL, {
                 method: "GET",
                 headers: {
                     Authorization: `${tokens.token_type} ${tokens.access_token}`,
@@ -184,7 +194,7 @@ export class AuthService {
                 });
             }
             loginResponse = await this.validate(userInfo.email);
-            return `applinks://lexa.app?payload=${JSON.stringify(loginResponse)}`;
+            return `${APPLICATION_DEEPLINKS}?payload=${JSON.stringify(loginResponse)}`;
         } catch (error) {
             throw new BadRequestException("Error fetching Google user info: " + error.message);
         }
