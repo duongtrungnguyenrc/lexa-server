@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { UserModule, TopicModule, SearchModule, AuthModule, ChatModule } from "@/modules";
+import { UserModule, TopicModule, SearchModule, AuthModule, ChatModule, LearningModule } from "@/modules";
 import { ConfigModule } from "@nestjs/config";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ScheduleModule } from "@nestjs/schedule";
@@ -14,6 +14,7 @@ import * as redisStore from "cache-manager-redis-store";
         TopicModule,
         SearchModule,
         ChatModule,
+        LearningModule,
         ScheduleModule.forRoot(),
         ConfigModule.forRoot({ isGlobal: true, envFilePath: ".env" }),
         MongooseModule.forRoot(process.env.CONNECTION_STRING),
@@ -23,7 +24,7 @@ import * as redisStore from "cache-manager-redis-store";
             host: process.env.REDIS_HOST,
             port: process.env.REDIS_PORT,
             password: process.env.REDIS_PASSWORD,
-            ttl: 300000,
+            ttl: 30,
         }),
     ],
     providers: [AnalysisService],

@@ -1,23 +1,18 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import mongoose from "mongoose";
-import { ELearningMethod } from "@/models/enums";
-import { User } from "./user.schema";
 import BaseSchema from "./base.schema";
-import { Topic } from "./topic.schema";
+import mongoose from "mongoose";
+import { Vocabulary } from "./vocabulary.schema";
 
 @Schema()
 export class LearningRecord extends BaseSchema {
+    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "Vocabulary" })
+    vocabulary: Vocabulary;
+
     @Prop()
-    time: Date;
+    answer: string;
 
-    @Prop({ enum: ["METHOD_FLASH_CARD", "METHOD_MULTIPLE_CHOICE", "METHOD_TYPING"], required: true })
-    method: ELearningMethod;
-
-    @Prop({ type: { type: mongoose.Schema.Types.ObjectId, ref: "User" } })
-    user: User;
-
-    @Prop({ type: { type: mongoose.Schema.Types.ObjectId, ref: "topic" } })
-    topic: Topic;
+    @Prop()
+    isTrue: boolean;
 }
 
 export const LearningRecordSchema = SchemaFactory.createForClass(LearningRecord);

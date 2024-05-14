@@ -11,6 +11,7 @@ import {
     GOOGLE_GET_USER_INFO_URL,
     GOOGLE_PROFILE_SCOPE,
     REFRESH_TOKEN_EXPIRED_TIME,
+    TOKEN_BLACK_LIST_PREFIX,
 } from "@/commons";
 import { InvalidPasswordException, ResourceNotFoundException } from "@/exceptions";
 import { OAuth2Client } from "google-auth-library";
@@ -87,7 +88,7 @@ export class AuthService {
 
     async tokenValidate(request: Request, refreshToken: string): Promise<BaseResponseModel> {
         const authToken: string = RequestHandlerUtils.getAuthToken(request);
-        const blackList: string[] = await this.getBlackList();
+        const isInBlackList = await this.cacheManager.get(`${TOKEN_BLACK_LIST_PREFIX}${authToken}`);
 
         if (!refreshToken) throw new BadRequestException("Invalid refresh token!");
 
@@ -95,11 +96,11 @@ export class AuthService {
             let accessToken: string = authToken;
 
             try {
-                if (blackList.includes(authToken)) throw new TokenExpiredError("Token has expired", new Date());
+                if (isInBlackList) throw new TokenExpiredError("Token has expired", new Date());
                 await this.jwtService.verify(authToken);
             } catch (error) {
                 if (error instanceof TokenExpiredError) {
-                    accessToken = await this.reGenerateToken(authToken, refreshToken);
+                    accessToken = await this.reValidate(authToken, refreshToken);
                 } else {
                     throw new UnauthorizedException(error.message);
                 }
@@ -121,7 +122,7 @@ export class AuthService {
         }
     }
 
-    async reGenerateToken(authToken: string, refreshToken: string) {
+    async reValidate(authToken: string, refreshToken: string) {
         try {
             const decodedToken = this.jwtService.verify(refreshToken);
             const { iat, exp, ...payload } = this.jwtService.decode(authToken);
@@ -137,20 +138,15 @@ export class AuthService {
 
     async inValidate(request: Request) {
         const authToken: string = RequestHandlerUtils.getAuthToken(request);
+        const decodedToken = await this.jwtService.decode(authToken);
 
-        if (!authToken) {
-            throw new UnauthorizedException("Invalid token");
-        }
+        const currentTime = Math.floor(Date.now() / 1000);
+        const tokenValidTime = decodedToken["exp"] - currentTime;
 
-        const blackList: string[] = await this.getBlackList();
-
-        await this.cacheManager.set("blacklist", JSON.stringify([...blackList, authToken]), 365 * 24 * 60 * 60 * 1000);
+        await this.cacheManager.set(`${TOKEN_BLACK_LIST_PREFIX}${authToken}`, authToken, {
+            ttl: tokenValidTime,
+        } as any);
         return new BaseResponseModel("Log out successfully");
-    }
-
-    async getBlackList(): Promise<string[]> {
-        const blackList: [] = JSON.parse(await this.cacheManager.get("blacklist")) ?? [];
-        return blackList;
     }
 
     googleAuth() {

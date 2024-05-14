@@ -3,7 +3,14 @@
  */
 
 import { Folder, MultipleChoiceAnswer, Topic, TopicGroup, User, Vocabulary } from "@/models/schemas";
-import { BadRequestException, HttpException, HttpStatus, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+    BadRequestException,
+    HttpException,
+    HttpStatus,
+    Injectable,
+    InternalServerErrorException,
+    UnauthorizedException,
+} from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { UserService } from "./user.service";
@@ -38,30 +45,36 @@ export class TopicService {
         } catch (error) {}
     }
 
-    async getTopicById(id: string, detail?: boolean) {
+    async getTopicById(id: string, detail?: boolean): Promise<Topic | null> {
+        const query = this.topicModel.findOne({ _id: id });
+        if (detail) {
+            query
+                .populate({
+                    path: "vocabularies",
+                    populate: {
+                        path: "multipleChoiceAnswers",
+                    },
+                })
+                .populate("author");
+        } else {
+            query.select("-vocabularies").populate("author");
+        }
+
+        return await query.lean();
+    }
+
+    async getTopic(id: string, detail?: boolean) {
         try {
-            const query = this.topicModel.findOne({ _id: id })?.lean();
+            const topic: Topic = await this.getTopicById(id, detail);
 
-            if (detail) {
-                query
-                    .populate({
-                        path: "vocabularies",
-                        populate: {
-                            path: "multipleChoiceAnswers",
-                        },
-                    })
-                    .populate("author");
-            } else {
-                query.select("-vocabularies").populate("author");
-            }
-
-            const topic = (await query.lean()) as Topic | null;
-
-            if (!topic) throw new HttpException("Topic does not exists", HttpStatus.NO_CONTENT);
+            if (!topic) throw new BadRequestException("Topic does not exists");
 
             return new BaseResponseModel("Successfully to get topic", topic);
         } catch (error) {
-            throw new HttpException("Invalid topic id", HttpStatus.BAD_REQUEST);
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException(error.message);
         }
     }
 

@@ -5,3 +5,4 @@ export { AnalysisService } from "./analysis.service";
 export { SearchService } from "./search.service";
 export { AuthService } from "./auth.service";
 export { ChatService } from "./chat.service";
+export { LearningService } from "./learning.service";

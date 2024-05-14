@@ -7,15 +7,18 @@ import {
     VocabularySchema,
     MultipleChoiceAnswer,
     MultipleChoiceAnswerSchema,
-    LearningRecord,
-    LearningRecordSchema,
+    LearningSession,
+    LearningSessionSchema,
     ChatRoom,
     ChatRoomSchema,
     Message,
     MessageSchema,
     TopicGroup,
     TopicGroupSchema,
+    Folder,
+    FolderSchema,
 } from "@/models/schemas";
+import { LearningRecord, LearningRecordSchema } from "@/models/schemas/learning-record.schema";
 import { Post, PostSchema } from "@/models/schemas/post.schema";
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
@@ -23,11 +26,13 @@ import { MongooseModule } from "@nestjs/mongoose";
 @Module({
     imports: [
         MongooseModule.forFeature([
+            { name: Folder.name, schema: FolderSchema },
             { name: TopicGroup.name, schema: TopicGroupSchema },
             { name: Topic.name, schema: TopicSchema },
             { name: User.name, schema: UserSchema },
             { name: Vocabulary.name, schema: VocabularySchema },
             { name: MultipleChoiceAnswer.name, schema: MultipleChoiceAnswerSchema },
+            { name: LearningSession.name, schema: LearningSessionSchema },
             { name: LearningRecord.name, schema: LearningRecordSchema },
             { name: TopicGroup.name, schema: TopicGroupSchema },
             { name: Post.name, schema: PostSchema },
@@ -37,11 +42,13 @@ import { MongooseModule } from "@nestjs/mongoose";
     ],
     exports: [
         MongooseModule.forFeature([
+            { name: Folder.name, schema: FolderSchema },
             { name: TopicGroup.name, schema: TopicGroupSchema },
             { name: Topic.name, schema: TopicSchema },
             { name: User.name, schema: UserSchema },
             { name: Vocabulary.name, schema: VocabularySchema },
             { name: MultipleChoiceAnswer.name, schema: MultipleChoiceAnswerSchema },
+            { name: LearningSession.name, schema: LearningSessionSchema },
             { name: LearningRecord.name, schema: LearningRecordSchema },
             { name: TopicGroup.name, schema: TopicGroupSchema },
             { name: Post.name, schema: PostSchema },

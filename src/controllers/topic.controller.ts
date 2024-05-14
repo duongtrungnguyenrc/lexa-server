@@ -23,7 +23,7 @@ export class TopicController {
     @Get("/")
     async getTopic(@Req() request: Request, @Query("id") id: string, @Query("detail") detail?: boolean) {
         if (id) {
-            return await this.topicService.getTopicById(id, detail as boolean);
+            return await this.topicService.getTopic(id, detail as boolean);
         }
         return this.topicService.getAllTopicsByUser(request);
     }

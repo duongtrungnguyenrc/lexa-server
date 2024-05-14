@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { EUserRole } from "../enums";
-import { LearningRecord } from "./learning-record.schema";
+import { LearningSession } from "./learning-session.schema";
 import BaseSchema from "./base.schema";
 import mongoose from "mongoose";
 import { Exclude } from "class-transformer";
@@ -29,8 +29,8 @@ export class User extends BaseSchema {
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], default: [] })
     follows: User[];
 
-    @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "LearningRecord" }], default: [] })
-    records: LearningRecord[];
+    @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: "LearningSession" }], default: [] })
+    learningSessions: LearningSession[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

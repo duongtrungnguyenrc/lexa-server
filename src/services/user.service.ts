@@ -19,7 +19,7 @@ import { JwtService } from "@nestjs/jwt";
 import { RequestHandlerUtils } from "@/utils";
 import { CloudinaryService } from "./cloudinary.service";
 import { InjectModel } from "@nestjs/mongoose";
-import { LearningRecord, Topic, User } from "@/models/schemas";
+import { Topic, User } from "@/models/schemas";
 import { Model } from "mongoose";
 import { EmailAlreadyExistsException } from "@/exceptions";
 import { Post } from "@/models/schemas/post.schema";
@@ -37,8 +37,6 @@ export class UserService {
         private readonly topicModel: Model<Topic>,
         @InjectModel(Post.name)
         private readonly postModel: Model<Post>,
-        @InjectModel(LearningRecord.name)
-        private readonly learningRecordModel: Model<LearningRecord>,
         private readonly jwtService: JwtService,
         private readonly mailerService: MailerService,
         private readonly cloudinaryService: CloudinaryService,
@@ -48,12 +46,22 @@ export class UserService {
     async getUserFromRequest(request: Request, excludes: string[] = []): Promise<User> {
         const authToken: string = RequestHandlerUtils.getAuthToken(request);
         const decodedToken: User = this.jwtService.decode(authToken);
-        return await this.userModel
+
+        const cachedUser: User = await this.cacheManager.get(`uid_${decodedToken?.id}`);
+
+        if (cachedUser) return cachedUser;
+
+        const user = await this.userModel
             .findOne({
                 _id: decodedToken?.id,
             })
             .select([...excludes.map((key) => `-${key}`)])
             .exec();
+
+        if (user) this.cacheManager.set(`uid_${user.id}`, user, { ttl: 180 } as any);
+        else throw new UnauthorizedException("Invalid user");
+
+        return user;
     }
 
     async getUserbyId(id?: string, excludes: string[] = []): Promise<User> {
@@ -65,38 +73,42 @@ export class UserService {
             .lean();
     }
 
-    async getTopAuthors(limit?: number) {
-        try {
-            const authors: User[] = (
-                await this.userModel.aggregate([
-                    {
-                        $lookup: {
-                            from: "topics",
-                            localField: "_id",
-                            foreignField: "author",
-                            as: "topics",
-                        },
+    async getTopAuthors(request: Request, limit?: number) {
+        const user: User = await this.getUserFromRequest(request);
+
+        const authors: User[] = (
+            await this.userModel.aggregate([
+                {
+                    $lookup: {
+                        from: "topics",
+                        localField: "_id",
+                        foreignField: "author",
+                        as: "topics",
                     },
-                    {
-                        $addFields: {
-                            topicCount: { $size: "$topics" },
-                        },
+                },
+                {
+                    $addFields: {
+                        topicCount: { $size: "$topics" },
                     },
-                    {
-                        $sort: { topicCount: -1 },
+                },
+                {
+                    $match: {
+                        _id: { $ne: user._id },
                     },
-                    {
-                        $limit: limit ?? 10,
-                    },
-                ])
-            ).map((author) => {
-                delete author.topics;
-                return author;
-            });
-            return new BaseResponseModel("Successfully to get top authors", authors);
-        } catch (error) {
-            throw error;
-        }
+                },
+                {
+                    $sort: { topicCount: -1 },
+                },
+                {
+                    $limit: limit ?? 10,
+                },
+            ])
+        ).map((author) => {
+            delete author.topics;
+            return author;
+        });
+
+        return new BaseResponseModel("Successfully to get top authors", authors);
     }
 
     async createUser(newUser: CreateUserDto): Promise<BaseResponseModel> {
@@ -118,7 +130,7 @@ export class UserService {
             )?.toObject();
 
             delete createdUser.password;
-            delete createdUser.records;
+            delete createdUser.learningSessions;
 
             this.mailerService.sendMail({
                 to: createdUser.email,
@@ -143,32 +155,29 @@ export class UserService {
     }
 
     async getUserProfile(request: Request, id?: string) {
-        try {
-            const user: User | null = id
-                ? await this.getUserbyId(id)
-                : await this.getUserFromRequest(request, ["records"]);
+        const user: User | null = id ? await this.getUserbyId(id) : await this.getUserFromRequest(request, ["records"]);
 
-            if (!user) throw new UnauthorizedException("User not found!");
+        if (!user) throw new UnauthorizedException("User not found!");
 
-            const [topicsCount, archivementsCount, followersCount] = await Promise.all([
-                this.topicModel.countDocuments({ author: user }),
-                this.postModel.countDocuments({ author: user }),
-                this.userModel.countDocuments({ follows: user }),
-            ]);
+        const [topics, archivements, followers] = await Promise.all([
+            this.topicModel.find({ author: user }).select(["-author", "-vocabularies", "-folder"]),
+            this.postModel.find({ author: user }).select(["-author"]),
+            this.userModel.find({ follows: user }).select(["-follows"]),
+        ]);
 
-            return new BaseResponseModel("Successfully to get user profile!", {
-                _id: user._id,
-                avatar: user.avatar,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                topics: topicsCount,
-                archivements: archivementsCount,
-                followers: followersCount,
-            });
-        } catch (error) {
-            throw error;
-        }
+        return new BaseResponseModel("Successfully to get user profile!", {
+            _id: user._id,
+            avatar: user.avatar,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            topicCount: topics.length,
+            archivementCount: archivements.length,
+            followerCount: followers.length,
+            topics: topics,
+            archivements: archivements,
+            followers: followers,
+        });
     }
 
     async updateAvatar(imageFile: Express.Multer.File, request: Request): Promise<BaseResponseModel> {

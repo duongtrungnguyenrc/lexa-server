@@ -7,3 +7,4 @@ export { MongooseInteractionModule } from "./mongoose-interaction.module";
 export { SearchModule } from "./search.module";
 export { AuthModule } from "./auth.module";
 export { ChatModule } from "./chat.module";
+export { LearningModule } from "./learning.module";

@@ -10,3 +10,5 @@ export { CreateTopicFolderDto } from "./create-topic-folder.dto";
 export { UpdateFolderDto } from "./update-folder";
 export { UpdateTopicDto } from "./update-topic.dto";
 export { CreateMessageDto } from "./create-message.dto";
+export { CreateLearningSessionDto } from "./create-learning-session.dto";
+export { CreateLearningRecordDto } from "./create-learning-record.dto";

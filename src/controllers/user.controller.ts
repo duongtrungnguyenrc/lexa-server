@@ -44,8 +44,8 @@ export class UserController {
     }
 
     @Get("top-author")
-    async getTopAuthors(@Query("limit") limit?: number) {
-        return await this.userService.getTopAuthors(limit);
+    async getTopAuthors(@Req() request: Request, @Query("limit") limit?: number) {
+        return await this.userService.getTopAuthors(request, limit);
     }
 
     @Get("forgot-password")
