@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { UserService } from "@/services/user.service";
 import { CreateUserDto, ResetPasswordDto, UpdateProfileDto } from "@/models/dtos";
 import { BaseResponseModel } from "@/models";
@@ -11,11 +11,16 @@ import { ApiTags } from "@nestjs/swagger";
 @Controller("user")
 @UseGuards(AuthGuard)
 export class UserController {
-    constructor(private readonly userService: UserService) {}
+    constructor(private readonly userService: UserService) { }
 
-    @Post("create")
-    async createUser(@Body() newUser: CreateUserDto): Promise<BaseResponseModel> {
-        return await this.userService.createUser(newUser);
+    @Post("sign-up")
+    async signUp(@Body() newUser: CreateUserDto): Promise<BaseResponseModel> {
+        return await this.userService.signUp(newUser);
+    }
+
+    @Get("find-accounts")
+    async findAccounts(@Query("key") key: string) {
+        return await this.userService.findAccounts(key);
     }
 
     @HasRole("ROLE_USER")
@@ -47,6 +52,12 @@ export class UserController {
     async getTopAuthors(@Req() request: Request, @Query("limit") limit?: number) {
         return await this.userService.getTopAuthors(request, limit);
     }
+
+    @Delete("forgot-password")
+    async destroyForgotPasswordTransaction(@Query('transactionId') transactionId: string) {
+        return await this.userService.destroyResetPasswordTransaction(transactionId);
+    }
+
 
     @Get("forgot-password")
     async forgotPassword(@Query("userId") userId: string) {

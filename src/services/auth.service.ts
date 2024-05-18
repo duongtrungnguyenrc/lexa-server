@@ -29,7 +29,7 @@ export class AuthService {
         private jwtService: JwtService,
         @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
         @Inject("GOOGLE_AUTH") private readonly oauth2Client: OAuth2Client,
-    ) {}
+    ) { }
 
     async validate(emailOrUser: string | LoginDto): Promise<BaseResponseModel> {
         try {
@@ -173,7 +173,7 @@ export class AuthService {
             const user: User = await this.userService.findUserByEmail(userInfo.email);
 
             if (!user) {
-                const createdUser: BaseResponseModel = await this.userService.createUser(
+                const createdUser: BaseResponseModel = await this.userService.signUp(
                     new CreateUserDto(userInfo.email, "", userInfo.name, "", userInfo.picture),
                 );
 

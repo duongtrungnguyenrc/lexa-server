@@ -21,7 +21,6 @@ import { CloudinaryService } from "./cloudinary.service";
 import { InjectModel } from "@nestjs/mongoose";
 import { Topic, User } from "@/models/schemas";
 import { Model } from "mongoose";
-import { EmailAlreadyExistsException } from "@/exceptions";
 import { Post } from "@/models/schemas/post.schema";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
@@ -41,7 +40,8 @@ export class UserService {
         private readonly mailerService: MailerService,
         private readonly cloudinaryService: CloudinaryService,
         @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    ) {}
+    ) { }
+
 
     async getUserFromRequest(request: Request, excludes: string[] = []): Promise<User> {
         const authToken: string = RequestHandlerUtils.getAuthToken(request);
@@ -58,7 +58,7 @@ export class UserService {
             .select([...excludes.map((key) => `-${key}`)])
             .exec();
 
-        if (user) this.cacheManager.set(`uid_${user.id}`, user, { ttl: 180 } as any);
+        if (user) this.cacheManager.set(`uid_${user.id}`, user, { ttl: 180 });
         else throw new UnauthorizedException("Invalid user");
 
         return user;
@@ -67,10 +67,25 @@ export class UserService {
     async getUserbyId(id?: string, excludes: string[] = []): Promise<User> {
         return await this.userModel
             .findOne({
-                _id: id,
+                $or: [
+                    { _id: id },
+                    { id: id }
+                ],
             })
             .select([...excludes.map((key) => `-${key}`)])
             .lean();
+    }
+
+    async findAccounts(key: string): Promise<BaseResponseModel> {
+        const accounts: User[] = await this.userModel.find({
+            $or: [
+                { id: key },
+                { email: key },
+                { phone: key }
+            ]
+        }).select(["-learningSessions", "-follows"]).lean();
+
+        return new BaseResponseModel("Find accounts success", accounts);
     }
 
     async getTopAuthors(request: Request, limit?: number) {
@@ -111,13 +126,13 @@ export class UserService {
         return new BaseResponseModel("Successfully to get top authors", authors);
     }
 
-    async createUser(newUser: CreateUserDto): Promise<BaseResponseModel> {
+    async signUp(newUser: CreateUserDto): Promise<BaseResponseModel> {
         const { password, ...userInfo } = newUser;
         const existingUser: User | null = await this.findUserByEmail(userInfo.email);
 
         try {
             if (existingUser) {
-                throw new EmailAlreadyExistsException();
+                throw new BadRequestException("Email already exists!");
             }
 
             const hashedPassword: string = await bcrypt.hash(password, 10);
@@ -141,7 +156,8 @@ export class UserService {
 
             return new BaseResponseModel("Successfully to created new user!", createdUser);
         } catch (error) {
-            throw new BadRequestException(new BaseResponseModel(error.message));
+            if (error instanceof HttpException) throw error;
+            throw new InternalServerErrorException(error.message);
         }
     }
 
@@ -228,7 +244,8 @@ export class UserService {
 
             const transactionId = uuidv4();
             const transactionOTP = this.generateOTP();
-            this.cacheManager.set(transactionId, { transactionOTP, userId }, 15 * 60 * 1000);
+
+            this.cacheManager.set(transactionId, { transactionOTP, userId }, { ttl: 15 * 60 });
 
             this.mailerService.sendMail({
                 to: user.email,
@@ -241,8 +258,29 @@ export class UserService {
                 userId,
                 transactionId,
             });
-        } catch (e) {
-            throw new InternalServerErrorException(e);
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException(error.message);
+        }
+    }
+
+    async destroyResetPasswordTransaction(transactionId: string) {
+        try {
+            const cachedTransaction = await this.cacheManager.get(transactionId);
+
+            if (!cachedTransaction) {
+                throw new BadRequestException("Invalid transaction!");
+            }
+
+            return new BaseResponseModel("Destroy reset password transaction success");
+
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException(error.message);
         }
     }
 
@@ -274,7 +312,12 @@ export class UserService {
 
             return new BaseResponseModel("Reset password successful!");
         } catch (error) {
-            throw error;
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException(error.message);
         }
     }
+
+
 }
