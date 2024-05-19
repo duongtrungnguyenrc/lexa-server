@@ -46,7 +46,7 @@ export class TopicService {
     }
 
     async getTopicById(id: string, detail?: boolean): Promise<Topic | null> {
-        const query = this.topicModel.findOne({ _id: id });
+        const query = this.topicModel.findOne({ $or: [{ id: id }, { _id: id }] });
         if (detail) {
             query
                 .populate({
@@ -55,7 +55,8 @@ export class TopicService {
                         path: "multipleChoiceAnswers",
                     },
                 })
-                .populate("author");
+                .populate("author")
+                .populate("folder");
         } else {
             query.select("-vocabularies").populate("author");
         }
@@ -126,7 +127,8 @@ export class TopicService {
 
             const topics = await this.topicModel
                 .find({ author: { $ne: user }, visibility: true })
-                .select(["-author", "-vocabularies"])
+                .select(["-author", "-vocabularies", "-folder"])
+
                 .limit(limit);
 
             return new BaseResponseModel("", topics);

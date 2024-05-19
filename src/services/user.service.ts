@@ -20,7 +20,7 @@ import { RequestHandlerUtils } from "@/utils";
 import { CloudinaryService } from "./cloudinary.service";
 import { InjectModel } from "@nestjs/mongoose";
 import { Topic, User } from "@/models/schemas";
-import { Model } from "mongoose";
+import { Model, UpdateQuery } from "mongoose";
 import { Post } from "@/models/schemas/post.schema";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
@@ -40,8 +40,7 @@ export class UserService {
         private readonly mailerService: MailerService,
         private readonly cloudinaryService: CloudinaryService,
         @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    ) { }
-
+    ) {}
 
     async getUserFromRequest(request: Request, excludes: string[] = []): Promise<User> {
         const authToken: string = RequestHandlerUtils.getAuthToken(request);
@@ -67,23 +66,19 @@ export class UserService {
     async getUserbyId(id?: string, excludes: string[] = []): Promise<User> {
         return await this.userModel
             .findOne({
-                $or: [
-                    { _id: id },
-                    { id: id }
-                ],
+                $or: [{ _id: id }, { id: id }],
             })
             .select([...excludes.map((key) => `-${key}`)])
             .lean();
     }
 
     async findAccounts(key: string): Promise<BaseResponseModel> {
-        const accounts: User[] = await this.userModel.find({
-            $or: [
-                { id: key },
-                { email: key },
-                { phone: key }
-            ]
-        }).select(["-learningSessions", "-follows"]).lean();
+        const accounts: User[] = await this.userModel
+            .find({
+                $or: [{ id: key }, { email: key }, { phone: key }],
+            })
+            .select(["-learningSessions", "-follows"])
+            .lean();
 
         return new BaseResponseModel("Find accounts success", accounts);
     }
@@ -222,18 +217,26 @@ export class UserService {
         const user: User | null = await this.getUserFromRequest(request);
 
         try {
-            const updatedResult = await this.userModel.updateOne(
-                { id: user._id },
+            await this.userModel.updateOne(
+                { $or: [{ _id: user._id }, { id: user._id }] },
                 {
                     name: newProfile.name ?? user.name,
-                    password: (await bcrypt.hash(newProfile.password, 10)) ?? user.password,
+                    password:
+                        (newProfile.password ? await bcrypt.hash(newProfile.password, 10) : null) ?? user.password,
                     phone: newProfile.phone ?? user.phone,
                 },
             );
-            return new BaseResponseModel("Successfully to update profile", updatedResult);
+
+            const updatedProfile = await this.userModel.findOne({ _id: user._id }).lean();
+            return new BaseResponseModel("Successfully to update profile", updatedProfile);
         } catch (error) {
-            throw new BadRequestException(error);
+            if (error instanceof HttpException) throw error;
+            throw new InternalServerErrorException(error.message);
         }
+    }
+
+    async update(filter: UpdateQuery<User>, update: UpdateQuery<User>): Promise<any> {
+        return await this.userModel.updateOne(filter, update);
     }
 
     async createResetPasswordTransaction(userId: string) {
@@ -275,7 +278,6 @@ export class UserService {
             }
 
             return new BaseResponseModel("Destroy reset password transaction success");
-
         } catch (error) {
             if (error instanceof HttpException) {
                 throw error;
@@ -318,6 +320,4 @@ export class UserService {
             throw new InternalServerErrorException(error.message);
         }
     }
-
-
 }

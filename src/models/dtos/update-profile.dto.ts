@@ -6,6 +6,9 @@ export class UpdateProfileDto {
     name?: string;
 
     @ApiProperty()
+    email?: string;
+
+    @ApiProperty()
     password?: string;
 
     @ApiProperty()

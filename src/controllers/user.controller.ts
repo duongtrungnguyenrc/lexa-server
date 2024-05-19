@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Get, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import {
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Patch,
+    Post,
+    Put,
+    Query,
+    Req,
+    UploadedFile,
+    UseGuards,
+    UseInterceptors,
+} from "@nestjs/common";
 import { UserService } from "@/services/user.service";
 import { CreateUserDto, ResetPasswordDto, UpdateProfileDto } from "@/models/dtos";
 import { BaseResponseModel } from "@/models";
@@ -11,7 +24,7 @@ import { ApiTags } from "@nestjs/swagger";
 @Controller("user")
 @UseGuards(AuthGuard)
 export class UserController {
-    constructor(private readonly userService: UserService) { }
+    constructor(private readonly userService: UserService) {}
 
     @Post("sign-up")
     async signUp(@Body() newUser: CreateUserDto): Promise<BaseResponseModel> {
@@ -30,14 +43,14 @@ export class UserController {
     }
 
     @HasRole("*")
-    @Post("update-avatar")
+    @Put("avatar")
     @UseInterceptors(FileInterceptor("file"))
     async updateAvatar(@UploadedFile() file: Express.Multer.File, @Req() request: Request) {
         return await this.userService.updateAvatar(file, request);
     }
 
     @HasRole("*")
-    @Post("update-pofile")
+    @Put("profile")
     async updateProfile(@Body() newProfile: UpdateProfileDto, @Req() request: Request) {
         return await this.userService.updateProfile(newProfile, request);
     }
@@ -54,10 +67,9 @@ export class UserController {
     }
 
     @Delete("forgot-password")
-    async destroyForgotPasswordTransaction(@Query('transactionId') transactionId: string) {
+    async destroyForgotPasswordTransaction(@Query("transactionId") transactionId: string) {
         return await this.userService.destroyResetPasswordTransaction(transactionId);
     }
-
 
     @Get("forgot-password")
     async forgotPassword(@Query("userId") userId: string) {

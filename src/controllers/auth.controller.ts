@@ -12,10 +12,16 @@ import { Response } from "express";
 export class AuthController {
     constructor(private readonly authService: AuthService) {}
 
-    @Post("auth")
+    @Post("sign-in")
     @HttpCode(200)
     async auth(@Body() user: LoginDto) {
         return await this.authService.validate(user);
+    }
+
+    @Post("sign-out")
+    @HttpCode(200)
+    async signOut(@Req() request: Request) {
+        return await this.authService.inValidate(request);
     }
 
     @Post("token-auth")

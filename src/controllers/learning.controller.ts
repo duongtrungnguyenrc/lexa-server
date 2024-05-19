@@ -7,7 +7,7 @@ import { ApiTags } from "@nestjs/swagger";
 @ApiTags("learning")
 @Controller("learning")
 export class LearningController {
-    constructor(private readonly learningService: LearningService) { }
+    constructor(private readonly learningService: LearningService) {}
 
     @HasRole("*")
     @Post("session")
@@ -23,7 +23,12 @@ export class LearningController {
 
     @HasRole("*")
     @Get("history")
-    async getLearningHistory(@Query("topicId") topicId: string) {
-        // return await this.learningService.g
+    async getLearningHistory(@Req() request: Request, @Query("topicId") topicId: string) {
+        return await this.learningService.getLearningHistory(request, topicId);
+    }
+
+    @Get("summary")
+    async getLearningSummary() {
+        return await this.learningService.getLearningSummary("66093e6f03569adc4e055fef");
     }
 }
